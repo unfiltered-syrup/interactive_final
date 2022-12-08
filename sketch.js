@@ -108,6 +108,11 @@ function draw(){
     if (bug_status == true) {
         bugs.move();
     }
+    console.log(frameRate());
+    strokeWeight(1);
+    stroke(255);
+    fill(255);
+    text(round(frameRate()), 50, 50);
     
 }
 
@@ -199,7 +204,7 @@ class player{
                 enemy_arr[i].display_range();
             }
         }
-        if(debug_mode==true){
+        if(debug_mode=='player'){
             strokeWeight(3);
             stroke(255,0,0);
             fill(255,0,0);
@@ -271,7 +276,7 @@ class regular_enemy{
         this.dist;
         this.visual_range = 180;
         this.hearing_range = 250;
-        this.alert_range = 130;
+        this.alert_range = 110;
         this.angle = random(-2, 2);
         this.offset = 0;
         this.angle_between;
@@ -283,8 +288,44 @@ class regular_enemy{
         this.path_multiplier = 1;
         this.t = 0;
         this.state_frame = 0;
+        this.pointer_arr = new Queue();
+        this.r = random(255);
+        this.g = random(255);
+        this.b = random(255);
     }
     move(){
+        this.x_cent = this.x+this.width/2;
+        this.y_cent = this.y+this.width/2;
+        for(let i = 0; i<=2; i+=0.1){
+            let len = 1;
+            push();
+            translate(this.x_cent, this.y_cent);
+            let ptr = p5.Vector.fromAngle(i*PI, len);
+            pop();
+
+            let clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
+            console.log(clr);
+            while(clr != 0 && clr != null ){
+                len += 10;
+                ptr = p5.Vector.fromAngle(i*PI, len);
+                clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
+            }
+            this.pointer_arr.enqueue([ptr, len]);
+        }
+        if(debug_mode==true){
+            for(let i = 0; i<=this.pointer_arr.length+1; i++){
+                let ptr = this.pointer_arr.dequeue()[0];
+                push();
+                translate(this.x_cent, this.y_cent);
+                stroke(this.r,this.g,this.b);
+                line(0, 0 , ptr.x, ptr.y);
+                pop();
+            }
+        }
+
+
+
+
         this.angle_between = Math.atan2(this.y_cent-plyr.y_cent, this.x_cent-plyr.x_cent);
         this.dist = dist(this.x_cent, this.y_cent, plyr.x_cent, plyr.y_cent);
         this.x_cent = this.x+this.width/2;
@@ -313,8 +354,8 @@ class regular_enemy{
         }
         else if(this.state == 'path'){
             this.visual_range = 180;
-            this.hearing_range = 200;
-            this.alert_range = 130;
+            this.hearing_range = 190;
+            this.alert_range = 100;
             this.vspd = 0.5;
             this.hspd = 0.5;
             this.m = createVector(this.x_cent-this.cur_path_pointer[0], this.y_cent-this.cur_path_pointer[1]);
@@ -417,8 +458,8 @@ class regular_enemy{
         if(opacity < 60){
             opacity += 0.3;
         }
-        fill(245, 73, 114, opacity);
-        stroke(245, 73, 114, opacity+30)
+        fill(255, 255, 255, opacity);
+        stroke(255, 255,255, opacity+30);
         ellipse(this.x_cent, this.y_cent, this.hearing_range*2);
         push();
         fill(73, 132, 245, opacity);
@@ -449,15 +490,12 @@ class regular_enemy{
         ellipse(this.x_cent - v2.x, this.y_cent - v2.y, 10);
         ellipse(this.x_cent - v3.x, this.y_cent - v3.y, 10);
         if(this.index == 2){
-            console.log(left, right);
         }
         if(left==0 && right != 0){
             this.angle += 0.05;
-            console.log('turnright');
         }
         else if(left != 0 && right == 0){
             this.angle -= 0.05;
-            console.log('turnleft');
         }
 
         if(left==0 && right==0){
@@ -465,8 +503,9 @@ class regular_enemy{
             if(this.angle <=0){
                 this.angle += 2;
             }
-            console.log('turnback');
         }
+
+        
     }
 
     check_collision(){
@@ -488,11 +527,16 @@ class regular_enemy{
         }
         this.wall_collision();
     }
+
+    
+
     wall_collision(){
         this.up_pointer = [this.x_cent, this.y_cent - this.width/3];
         this.down_pointer = [this.x_cent, this.y_cent + this.width/3];
         this.left_pointer = [this.x_cent-this.width/3, this.y_cent];
         this.right_pointer = [this.x_cent+this.width/3, this.y_cent];
+
+
         if(debug_mode == true){
             ellipse(this.up_pointer[0], this.up_pointer[1], 5);
             ellipse(this.down_pointer[0], this.down_pointer[1], 5);
@@ -611,4 +655,35 @@ function keyPressed(){
 function door(){
     map_index++;
     level_start();
+}
+
+class Queue{
+    constructor(){
+        this.elements = {};
+        this.head = 0;
+        this.tail = 0;
+    }
+    enqueue(element){
+        this.elements[this.tail] = element;
+        this.tail++;
+    }
+    dequeue(){
+        const item = this.elements[this.head];
+        delete this.elements[this.head];
+        this.head++;
+        return item;
+    }
+    get length(){
+        return this.tail - this.head;
+    }
+    get isEmpty(){
+        return this.length === 0;
+    }
+    printQueue(){
+        var str = "";
+        for(var i = 0; i < this.elements.length; i++)
+            str += this.elements[i] +" ";
+        return str;
+}
+    
 }
