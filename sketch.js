@@ -108,7 +108,6 @@ function draw(){
     if (bug_status == true) {
         bugs.move();
     }
-    console.log(frameRate());
     strokeWeight(1);
     stroke(255);
     fill(255);
@@ -292,10 +291,27 @@ class regular_enemy{
         this.r = random(255);
         this.g = random(255);
         this.b = random(255);
+        this.close_range = false;
+        this.max = 0;
+        this.sec = 0;
     }
     move(){
+        if(this.index==2){
+            //console.log(this.state);
+        }
+        
         this.x_cent = this.x+this.width/2;
         this.y_cent = this.y+this.width/2;
+        this.close_range = false;
+        this.angle_between = Math.atan2(this.y_cent-plyr.y_cent, this.x_cent-plyr.x_cent);
+        this.dist = dist(this.x_cent, this.y_cent, plyr.x_cent, plyr.y_cent);
+        this.x_cent = this.x+this.width/2;
+        this.y_cent = this.y+this.width/2;
+        this.play_ani();
+        this.state_frame ++;
+        if(this.angle_between < 0){
+            this.angle_between += 2*PI;
+        }
         for(let i = 0; i<=2; i+=0.1){
             let len = 1;
             push();
@@ -304,34 +320,18 @@ class regular_enemy{
             pop();
 
             let clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
-            console.log(clr);
+
             while(clr != 0 && clr != null ){
                 len += 10;
                 ptr = p5.Vector.fromAngle(i*PI, len);
                 clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
             }
-            this.pointer_arr.enqueue([ptr, len]);
-        }
-        if(debug_mode==true){
-            for(let i = 0; i<=this.pointer_arr.length+1; i++){
-                let ptr = this.pointer_arr.dequeue()[0];
-                push();
-                translate(this.x_cent, this.y_cent);
-                stroke(this.r,this.g,this.b);
-                line(0, 0 , ptr.x, ptr.y);
-                pop();
+            if(len < 150){
+                this.free_ptr = this.navigateSpace();
+                this.close_range = true;
+                break;
             }
         }
-
-
-
-
-        this.angle_between = Math.atan2(this.y_cent-plyr.y_cent, this.x_cent-plyr.x_cent);
-        this.dist = dist(this.x_cent, this.y_cent, plyr.x_cent, plyr.y_cent);
-        this.x_cent = this.x+this.width/2;
-        this.y_cent = this.y+this.width/2;
-        this.play_ani();
-        this.state_frame ++;
         if(this.state_frame == 60*20 && this.state != 'path'){
             this.state_frame = 0;
             this.state = 'idle';
@@ -377,7 +377,9 @@ class regular_enemy{
             this.rotateBy(this.angle_between);
 
         }
-
+        if(this.index==2){
+            console.log('angle_between: '+ this.angle_between + '///angle left: ' + (this.angle- this.view_range));
+        }
         if(this.dist < this.visual_range && this.angle_between > this.angle - this.view_range && this.angle_between < this.angle + this.view_range){
             this.state = 'track';
             this.hspd = 1.5;
@@ -408,37 +410,83 @@ class regular_enemy{
         }
         else if(this.state == 'sensed'){
             //this.angle = Math.atan2(this.y_cent-plyr.y_cent, this.x_cent-plyr.x_cent);
-            this.perlin_rotate_fixed();
-            this.navigateSpace();
-            let v = p5.Vector.fromAngle(this.angle, 10);
-            this.m = createVector(this.x_cent+v.x, this.y_cent-v.y);
-            v.normalize();
-            this.x -= v.x * 0.2;
-            this.y -= v.y * 0.2;
-            this.rotateBy(this.angle);
-            push();
-            fill(212, 164, 32);
-            stroke(212, 164, 32);
-            strokeWeight(1);
-            text('???', this.x_cent-10, this.y-10);
-            pop();
+            this.zomb_navi_sensed();
         }
         else if(this.state == 'alerted'){
             this.angle = Math.atan2(this.y_cent-plyr.y_cent, this.x_cent-plyr.x_cent);
-            this.perlin_rotate_fixed();
+            if(this.angle<0){
+                this.angle += 2*PI;
+            }
+            this.perlin_rotate_fixed(0.1);
             this.rotateBy(this.angle);
         }
 
         this.check_collision();
 
     }
-    perlin_rotate_fixed(){
+    perlin_rotate_fixed(scale){
         this.offset = this.offset + random(0.001, 0.01);
-        let n = noise(this.offset)*0.1-0.05;
+        let n = noise(this.offset)*scale-0.05;
         this.angle += n;
-        if(this.angle >= 2){
-            this.angle -= 2;
+        if(this.angle < 0){
+            this.angle += 2*PI;
         }
+    }
+    zomb_navi_sensed(){
+        this.navigateSpace();
+        let v = p5.Vector.fromAngle(this.angle, 10);
+        if(this.close_range == true){
+            push();
+            translate(this.x_cent, this.y_cent);
+            let ang = Math.atan2(this.free_ptr.y, this.free_ptr.x);
+            ang += PI;
+            let t = p5.Vector.fromAngle(ang, 200);
+            fill(0);
+            circle(t.x, t.y, 10);
+            pop();
+            if(ang/PI - this.angle/PI < 0){
+                //console.log('sub_angle, desired: '+(ang/PI)+' actual: '+(this.angle/PI));
+                this.angle -= 0.008*PI;
+                if(this.max<200){
+                    this.angle -= PI;
+                    console.log('turnning');
+                }
+            }
+            else{
+                this.angle += 0.008*PI;
+                if(this.max<200){
+                    this.angle += PI;
+                    console.log('turnning'+this.max);
+                }
+
+            }
+            let dif = ang/PI - this.angle;
+            this.perlin_rotate_fixed(0.1);
+            v = p5.Vector.fromAngle(this.angle, 100);
+            push();
+            translate(this.x_cent, this.y_cent);
+            line(0, 0, -v.x, -v.y);
+            stroke(245,40,145);
+            strokeWeight(4);
+            line(0, 0, this.free_ptr.x, this.free_ptr.y);
+            pop();
+            v.normalize();
+            this.x -= v.x * 0.2;
+            this.y -= v.y * 0.2;
+        }
+        else{
+            v.normalize();
+            this.x -= v.x * 0.2;
+            this.y -= v.y * 0.2;
+            this.perlin_rotate_fixed(0.1);
+        }
+        this.rotateBy(this.angle);
+        push();
+        fill(212, 164, 32);
+        stroke(212, 164, 32);
+        strokeWeight(1);
+        text('???', this.x_cent-10, this.y-10);
+        pop();
     }
     perlin_rotate_reg(){
         this.offset = this.offset + random(0, 0.01);
@@ -483,8 +531,43 @@ class regular_enemy{
         pop();
     }
     navigateSpace(){
-        let v2 = p5.Vector.fromAngle(this.angle-this.view_range, this.visual_range/4);
-        let v3 = p5.Vector.fromAngle(this.angle+this.view_range, this.visual_range/4);
+        this.max = 0;
+        this.sec = 0;
+        let maxptr;
+        for(let i = this.angle/PI-3/7+1; i<=this.angle/PI+3/7+1; i+=0.05){
+            let len = 1;
+            push();
+            translate(this.x_cent, this.y_cent);
+            let ptr = p5.Vector.fromAngle(i*PI, len);
+            pop();
+
+            let clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
+
+            while(clr != 0 && clr != null ){
+                len += 10;
+                ptr = p5.Vector.fromAngle(i*PI, len);
+                clr = red(curmap.get((this.x_cent + ptr.x), (this.y_cent + ptr.y)));
+            }
+            this.pointer_arr.enqueue([ptr, len]);
+            if(len>this.max){
+                this.sec = this.max;
+                this.max = len;
+                maxptr = ptr;
+            }
+
+        }
+        if(debug_mode==true){
+            for(let i = 0; i<=this.pointer_arr.length+1; i++){
+                let ptr = this.pointer_arr.dequeue()[0];
+                push();
+                translate(this.x_cent, this.y_cent);
+                stroke(this.r,this.g,this.b);
+                line(0, 0 , ptr.x, ptr.y);
+                pop();
+            }
+        }
+        let v2 = p5.Vector.fromAngle(this.angle-this.view_range, this.visual_range/3);
+        let v3 = p5.Vector.fromAngle(this.angle+this.view_range, this.visual_range/3);
         let left = red(curmap.get((this.x_cent - v2.x), (this.y_cent - v2.y)));
         let right = red(curmap.get((this.x_cent - v3.x), (this.y_cent - v3.y)));
         ellipse(this.x_cent - v2.x, this.y_cent - v2.y, 10);
@@ -492,18 +575,17 @@ class regular_enemy{
         if(this.index == 2){
         }
         if(left==0 && right != 0){
-            this.angle += 0.05;
+            this.angle += 0.01*PI;
         }
         else if(left != 0 && right == 0){
-            this.angle -= 0.05;
+            this.angle -= 0.01*PI;
         }
+        else if(left == 0 && right == 0){
+            this.angle += PI;
+        }
+        return maxptr;
 
-        if(left==0 && right==0){
-            this.angle -= 1;
-            if(this.angle <=0){
-                this.angle += 2;
-            }
-        }
+
 
         
     }
@@ -639,7 +721,7 @@ class bug{
 }
 
 function mouseClicked(){
-    console.log(mouseX, mouseY);
+
     if(bug_status == false){
         bugs = new bug(plyr.x, plyr.y , mouseX, mouseY);
     }
