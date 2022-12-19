@@ -3,6 +3,8 @@ function preload(){
     let path;
     walk_ani = [];
     zombie_ani = [];
+    special_ani = [];
+    test_arr = [];
     for (let i = 0; i <= images; i++){
         path = 'player/walk/tile00' + str(i) + '.png';
         walk_ani.push(loadImage(path));
@@ -11,11 +13,16 @@ function preload(){
         path = 'enemy/zombies/tile00' + str(i) + '.png';
         zombie_ani.push(loadImage(path));
     }
+    for (let i = 0; i <= images; i++){
+        path = 'enemy/special/tile00' + str(i) + '.png';
+        special_ani.push(loadImage(path));
+    }
     test = loadImage('map/test.png');
     lv1 = loadImage('map/lv1.png');
     lv2 = loadImage('map/lv2.png');
     lv3 = loadImage('map/lv3.png');
-    lv_count = 2;
+    lv4 = loadImage('map/lv4.png');
+    lv_count = 3;
     tile_map = [];
     for (let i = 0; i <= lv_count; i++){
         path = 'map/tile_map/lv' + str(i+1) + '.png';
@@ -40,28 +47,213 @@ function setup(){
     frameRate(60);
     opacity = 0;
     debug_mode = true;
-    canvas_x = 1050;
-    canvas_y = 800;
+    canvas_x = 1088;
+    canvas_y = 896;
     createCanvas(canvas_x,canvas_y);
     //enemy loc array
     lv1_enemy_pos = [[300,133, 'idle'], [700, 300, 'idle'], [300, 450, 'idle']];
     lv2_enemy_pos = [[550, 150, 'idle']];
     lv3_enemy_pos = [[900, 700, 'path', [[940,680], [940, 145], [135, 131]]],
                     [418, 221, 'path', [[418,221], [417, 568], [509, 625], [781, 625]]]];
-    map_index = 0;
-    maps = [lv1, lv2, lv3];
-    key_pos = [[[473, 287]], [[939, 144]], [[659, 308], [192, 432]]];
-    lv_enemy = [lv1_enemy_pos, lv2_enemy_pos, lv3_enemy_pos];
+    lv4_enemy_pos = [[670, 500, 'path', [[670,500], [670,700], [925, 700], [925,500]]]
+
+    ]
+    lv1_enemy_pos_s = [];
+    lv2_enemy_pos_s = [];
+    lv3_enemy_pos_s = [];
+    lv4_enemy_pos_s = [[128, 128]];
+    map_index = 3;
+    maps = [lv1, lv2, lv3, lv4];
+    key_pos = [[[473, 287]], [[939, 144]], [[659, 308], [192, 432]], [[925, 700]]];
+    lv_enemy = [lv1_enemy_pos, lv2_enemy_pos, lv3_enemy_pos, lv4_enemy_pos];
+    lv_special_enemy = [lv1_enemy_pos_s, lv2_enemy_pos_s, lv3_enemy_pos_s, lv4_enemy_pos_s]
     enemy_arr = [];
     pressed = false;
     curmap = maps[map_index];
     bug_status = false;
-    player_start_loc = [[540, 680], [540, 680], [50, 100]];
-    level_start();
+    player_start_loc = [[540, 680], [540, 680], [50, 100], [900, 100]];
     bugs_arr = [];
     bugs = new bug();
+
+
+
+    grid = [];
+    cellSize = 32;
+    gridWidth = 34;
+    gridHeight = 28;
+
+// where the creatures start in the grid (0,0) and where they want to get to (19,19)
+    startX = 0;
+    startY = 0;
+    endX = 13;
+    endY = 13;
+
+// array to hold all creature objects that will move through the grid
+    creatures = [];
+
+    for (var x = 0; x < gridWidth; x++) {
+        var newRow = [];
+        for (var y = 0; y < gridHeight; y++) {
+          // each cell in our grid holds an object to define its color, whether it is solid, and pathing info, including pointers to the next cell that will bring us closer to the optimal path to
+          // the desired end point of the maze
+          // we assume at the beginning that we don't know how far it is to get to the end (-1)
+          // and we default these pointers to "unknown"
+          newRow.push({color:0, solid: false, stepsToEnd: -1, nextX: "unknown", nextY: "unknown", nextDirection: -1});
+        }
+        grid.push(newRow);
+      }
+    
+      // find all paths to the end point - there is where the magic hawippens!
+      findPaths();
+
+      level_start();
+
+}
+function level_start_matrix_adjust(){
+    for(let i = 0; i < gridWidth; i++){
+        for(let u = 0; u < gridHeight; u++){
+            let clr = red((curmap.get(i*cellSize+cellSize/2, u*cellSize+cellSize/2)));
+            if(clr==0){
+                grid[i][u].color = 128;
+                grid[i][u].solid = true;
+            }
+        }
+    }
 }
 
+function findPaths() {
+    // step 1: clear all existing pathfinding information in the grid
+    for (var i = 0; i < grid.length; i++) {
+      for (var j = 0; j < grid[i].length; j++) {
+        grid[i][j].stepsToEnd = -1;
+        grid[i][j].nextX = "unknown";
+        grid[i][j].nextY = "unknown";
+        grid[i][j].dx = 0;
+        grid[i][j].dy = 0;
+        grid[i][j].nextDirection = -1;
+      }
+    }
+  
+    // step 2: mark the end path as 0 steps
+    try{
+        grid[endX][endY].stepsToEnd = 0;
+        grid[endX][endY].nextX = "none";
+        grid[endX][endY].nextY = "none";
+        grid[endX][endY].dx = 0;
+        grid[endX][endY].dy = 0;
+        grid[endX][endY].nextDirection = -1;
+    }
+    catch(error){
+        console.log(error);
+    }
+    
+  
+    // step 3: find all this loop keeps calling 'findPathIterative' until all cells in the grid have
+    // pointers to the optimal end path
+    while (true) {
+      if (findPathIterative() === 0) {
+        break;
+      }
+    }
+  
+    // tell all the creatures to recompute their paths
+    for (var c in creatures) {
+      creatures[c].recomputePath();
+    }
+  }
+  
+  // this function visits every tile on the page and computes its optimal path to the ending cell
+  // note that this function gets called multiple times since it only computes the path for cells
+  // that have existing pathing info (at the beginning this will only be the end cell, followed
+  // by its direct neighbors, until finally it spreads out to all cells).  we do this iteratively
+  // since a recursive implementation can be a big memory intensive and can cause performance issues
+  function findPathIterative() {
+    // start off by making a deep copy of the entire array
+    var gridCopy = makeDeepCopy(grid);
+  
+    // assume we need to make 0 changes to the pathing info in the grid - this is important
+    // since if this number fails to change during the computation phase below we can assume
+    // that we have computed a valid optimal path to the end cell
+    var numChanges = 0;
+  
+    // visit every cell in the grid
+    for (var x = 0; x < grid.length; x++) {
+      for (var y = 0; y < grid[x].length; y++) {
+        // only need to do something if this is tile is not solid or we know pathing info for the tile already
+        if (grid[x][y].solid === false && grid[x][y].stepsToEnd == -1) {
+          // check element: RIGHT
+          if (x < grid.length-1) {
+            // is it solid and do we know the pathfinding info for this tile?
+            if (grid[x+1][y].solid === false && grid[x+1][y].stepsToEnd >= 0) {
+              // mark this tile with pathfinding info based on the cell we are visiting (+1)
+              gridCopy[x][y].stepsToEnd = grid[x+1][y].stepsToEnd+1;
+              gridCopy[x][y].nextX = x + 1;
+              gridCopy[x][y].nextY = y;
+              gridCopy[x][y].dx = 1;
+              gridCopy[x][y].dy = 0;
+              gridCopy[x][y].nextDirection = "right";
+  
+              numChanges++;
+            }
+          }
+  
+          // check element: LEFT
+          if (x >= 1) {
+            // is it solid and do we know the pathfinding info for this tile?
+            if (grid[x-1][y].solid === false && grid[x-1][y].stepsToEnd >= 0) {
+              // mark this tile with pathfinding info based on the cell we are visiting (+1)
+              gridCopy[x][y].stepsToEnd = grid[x-1][y].stepsToEnd+1;
+              gridCopy[x][y].nextX = x-1;
+              gridCopy[x][y].nextY = y;
+              gridCopy[x][y].dx = -1;
+              gridCopy[x][y].dy = 0;
+              gridCopy[x][y].nextDirection = "left";
+  
+              numChanges++;
+            }
+          }
+  
+          // check element: DOWN
+          if (y < grid[x].length-1) {
+            // is it solid and do we know the pathfinding info for this tile?
+            if (grid[x][y+1].solid === false && grid[x][y+1].stepsToEnd >= 0) {
+              // mark this tile with pathfinding info based on the cell we are visiting (+1)
+              gridCopy[x][y].stepsToEnd = grid[x][y+1].stepsToEnd+1;
+              gridCopy[x][y].nextX = x;
+              gridCopy[x][y].nextY = y+1;
+              gridCopy[x][y].dx = 0;
+              gridCopy[x][y].dy = 1;
+              gridCopy[x][y].nextDirection = "down";
+  
+              numChanges++;
+            }
+          }
+  
+          // check element: UP
+          if (y >= 1) {
+            // is it solid and do we know the pathfinding info for this tile?
+            if (grid[x][y-1].solid === false && grid[x][y-1].stepsToEnd >= 0) {
+              // mark this tile with pathfinding info based on the cell we are visiting (+1)
+              gridCopy[x][y].stepsToEnd = grid[x][y-1].stepsToEnd+1;
+              gridCopy[x][y].nextX = x;
+              gridCopy[x][y].nextY = y-1;
+              gridCopy[x][y].dx = 0;
+              gridCopy[x][y].dy = -1;
+              gridCopy[x][y].nextDirection = "up";
+  
+              numChanges++;
+            }
+          }
+        }
+      }
+    }
+  
+    // update the grid with the copy that we made
+    grid = gridCopy;
+  
+    // tell the caller how many changes we made (if 0 the caller will stop the 'while' loop and a path has been computed)
+    return numChanges;
+  }
 function place_enemies(){
     let arr = lv_enemy[map_index];
     for(let i = 0; i<arr.length; i++){
@@ -73,10 +265,22 @@ function place_enemies(){
         }
         enemy_arr.push(zomb);
     }
+
+    let arr2 = lv_special_enemy[map_index];
+    for(let i = 0; i<arr2.length; i++){
+        if(arr2[i].length == 4){
+            ppl = new Creature(arr2[i][0], arr2[i][1]);
+        }
+        else{
+            ppl = new Creature(arr2[i][0], arr2[i][1]);
+        }
+        special_enemy_arr.push(ppl);
+    }
 }
 
 function level_start(){
     enemy_arr = [];
+    special_enemy_arr = [];
     place_enemies();
     curmap = maps[map_index];
     bugs = new bug();
@@ -87,6 +291,7 @@ function level_start(){
         key_arr.push(k);
     }
     plyr = new player(player_start_loc[map_index][0], player_start_loc[map_index][1]);
+    level_start_matrix_adjust();
 }
 
 function level_restart(){
@@ -104,6 +309,7 @@ function draw(){
     for(let i = 0; i<enemy_arr.length; i++){
         enemy_arr[i].move();
     }
+    
 
     if (bug_status == true) {
         bugs.move();
@@ -113,6 +319,77 @@ function draw(){
     fill(255);
     text(round(frameRate()), 50, 50);
     
+
+
+    //path finding
+    noStroke()
+    
+    let end_x = (plyr.x_cent - (plyr.x_cent % cellSize))/cellSize;
+    let end_y = (plyr.y_cent - (plyr.y_cent % cellSize))/cellSize;
+    endX = end_x;
+    endY = end_y;
+    try {
+        if(grid[end_x][end_y].solid){
+            if(grid[end_x+1][end_y].solid == false){
+                endX += 1;
+            }
+            else if(grid[end_x-1][end_y].solid == false){
+                endX -= 1;
+            }
+            else if(grid[end_x][end_y+1].solid == false){
+                endY += 1;
+            }
+            else if(grid[end_x][end_y-1].solid == false){
+                endY -= 1;
+            }
+        }
+    }
+    catch(error){
+        console.log(error);
+    }
+        
+    
+    startX = 1;
+    startY = 1;
+    findPaths();
+    for (var row = 0; row < grid.length; row++) {
+      for (var col = 0; col < grid[row].length; col++) {
+
+  
+        if (debug_mode) {
+          fill(0,255,0)
+          text(grid[row][col].stepsToEnd, row*cellSize+cellSize/2, col*cellSize+cellSize/2)        
+        }
+      }
+    }
+  
+    // draw start and end points
+    noStroke();
+  
+    fill(0,255,0,150);
+    rect(startX*cellSize, startY*cellSize, cellSize, cellSize);
+    fill(0,255,0,150);
+    rect(endX*cellSize, endY*cellSize, cellSize, cellSize);
+  
+    // draw the mouse indicator
+    stroke(255);
+    strokeWeight(5);
+    noFill();
+    var gx = int(mouseX / cellSize);
+    var gy = int(mouseY / cellSize);
+    rect(gx*cellSize, gy*cellSize, cellSize, cellSize);
+  
+    // every 10 frames spawn a creature
+    
+  
+    // move and display creatures
+    for(let i = 0; i<special_enemy_arr.length; i++){
+        special_enemy_arr[i].display();
+        if (special_enemy_arr[i].isAtEnd()) {
+            special_enemy_arr[i].die();
+          }
+    }
+
 }
 
 function displayMap(cur){
@@ -453,7 +730,7 @@ class regular_enemy{
                 }
             }
             else{
-                this.angle += 0.008*PI;
+                this.angle += 0.008*PI;9
                 if(this.max<200){
                     this.angle += PI;
                     console.log('turnning'+this.max);
@@ -721,7 +998,10 @@ class bug{
 }
 
 function mouseClicked(){
-
+    var gx = int(mouseX / cellSize);
+    var gy = int(mouseY / cellSize);
+    test_arr.push([gx,gy]);
+    console.log(test_arr);
     if(bug_status == false){
         bugs = new bug(plyr.x, plyr.y , mouseX, mouseY);
     }
@@ -769,3 +1049,194 @@ class Queue{
 }
     
 }
+
+class Creature {
+
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.nodeX = int( this.x / cellSize );
+      this.nodeY = int( this.y / cellSize );
+      this.desiredX = grid[this.nodeX][this.nodeY].nextX * cellSize + 0.5*cellSize;
+      this.desiredY = grid[this.nodeX][this.nodeY].nextY * cellSize + 0.5*cellSize;
+      this.color = color( random(255), random(255), random(255) );
+      this.nodeHistory = [];
+      this.nodeHistory.push([this.nodeX, this.nodeY]);
+      this.dead = false;
+      this.animation = special_ani;
+      this.frame = 0;
+      this.state = 'idle';
+      this.hearing_range = 600;
+      this.visual_range = 500;
+      this.distPlayer = 1000;
+      this.angle = 0;
+      this.offset;
+      this.width = 54;
+      this.x_cent = this.x -= this.width/2;
+      this.y_cent = this.y -= this.width/2;
+    }
+  
+    display() {
+        this.x_cent = this.x - this.width/2;
+        this.y_cent = this.y - this.width/2;
+        this.state_detect();
+        this.play_ani();
+        console.log(this.state + ' x: '+this.x+', y: '+this.y);
+      if (!this.dead && this.state == 'persuit') {
+        this.angle = Math.atan2(this.y-this.desiredY, this.x-this.desiredX);
+        this.rotateBy(this.angle);
+        this.move();
+      }
+      else if(!this.dead && this.state == 'alert'){
+        this.perlin_rotate_fixed(0.1);
+        this.rotateBy(this.angle);
+      }
+      else if(!this.dead && this.state == 'idle'){
+        this.rotateBy(this.angle);
+      }
+    }
+
+    rotateBy(angle){
+        push();
+        translate(this.x, this.y);
+        imageMode(CENTER);
+        rotate(angle-PI/2);
+        image(this.animation[this.frame],0, 0, 54, 54);
+        this.angle = angle;
+        pop();
+    }
+
+    state_detect(){
+        this.distPlayer = dist(this.x_cent, this.y_cent, plyr.x_cent, plyr.y_cent);
+        console.log(this.distPlayer);
+        if(this.distPlayer < this.hearing_range && this.distPlayer > this.visual_range){
+            this.state = 'alert';
+        }
+        else if(this.distPlayer < this.visual_range){
+            this.state = 'persuit';
+        }
+    }
+    perlin_rotate_fixed(scale){
+        this.offset = this.offset + random(0.001, 0.01);
+        let n = noise(this.offset)*scale-0.05;
+        this.angle += n;
+        if(this.angle < 0){
+            this.angle += 2*PI;
+        }
+    }
+    play_ani(){
+        if(this.state == 'idle'){
+            if(frameCount%60 == 0){
+                this.frame ++;
+            }
+        }
+        else if(this.state == 'sensed' || this.state == 'alerted'){
+            if(frameCount%20 == 0){
+                this.frame ++;
+            }
+        }
+        else{
+            if(frameCount%5 == 0){
+                this.frame ++;
+            }
+        }
+        if(this.frame >= this.animation.length){
+            this.frame = 0;
+        }
+    }
+  
+    die() {
+      this.dead = true;
+    }
+  
+    isAtEnd() {
+      if (this.nodeX == endX && this.nodeY == endY) {
+        return true;
+      }
+      return false;
+    }
+  
+    move() {
+      if (!this.dead) {
+        // move based on current movement vector
+        if (this.x < this.desiredX) {
+          this.x += 1;
+        }
+        else if (this.x > this.desiredX) {
+          this.x -= 1;
+        }
+        if (this.y < this.desiredY) {
+          this.y += 1;
+        }
+        else if (this.y > this.desiredY) {
+          this.y -= 1;
+        }
+  
+        // have we reached our new position?  if so, compute a new node value
+        if (dist(this.x, this.y, this.desiredX, this.desiredY) < 2) {
+          // snap to our desired position
+          this.x = this.desiredX;
+          this.y = this.desiredY;
+  
+          // note this position
+          this.nodeHistory.push([this.nodeX, this.nodeY]);
+  
+          // see where we need to go next!
+          this.recomputePath();
+        }
+      }
+    }
+  
+    recomputePath() {
+      if (!this.dead) {
+        // compute new node value
+        this.nodeX = int( this.x / cellSize );
+        this.nodeY = int( this.y / cellSize );
+  
+        // add this to our node history
+        this.nodeHistory.push([this.nodeX, this.nodeY]);
+  
+        // make sure we aren't stuck in a solid tile!
+        if (grid[this.nodeX][this.nodeY].solid) {
+          // find the most recently visited node that is not solid and move back there
+          for (var i = this.nodeHistory.length-1; i >= 0; i--) {
+            if (grid[this.nodeHistory[i][0]][this.nodeHistory[i][1]].solid === false) {
+              // move back to this previous node
+              this.desiredX = this.nodeHistory[i][0] * cellSize + 0.5*cellSize;
+              this.desiredY = this.nodeHistory[i][1] * cellSize + 0.5*cellSize;
+              break;
+            }
+          }
+
+        }
+        else {
+          // compute new desired value
+          this.desiredX = grid[this.nodeX][this.nodeY].nextX * cellSize + 0.5*cellSize;
+          this.desiredY = grid[this.nodeX][this.nodeY].nextY * cellSize + 0.5*cellSize;
+        }
+      }
+    }
+  }
+
+  function makeDeepCopy(g) {
+    var gridCopy = [];
+  
+    for (var x = 0; x < g.length; x++) {
+      var newRow = [];
+  
+      for (var y = 0; y < g[x].length; y++) {
+        var newObj = {};
+  
+        for (var property in g[x][y]) {
+          newObj[property] = g[x][y][property];
+        }
+  
+        newRow.push(newObj);
+      }
+  
+      gridCopy.push(newRow);
+    }
+  
+    return gridCopy;
+  }
+  
