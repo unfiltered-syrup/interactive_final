@@ -9,13 +9,15 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: rgb(121, 214, 237);
+        background-color: black;
         font-family: "Lucida Console", "Courier New", monospace;
+        color: white;
       }
       .container{
-        margin-top: 1100px;
+        margin-top: 850px;
         position: absolute;
-        margin-left: -800px;
+        margin-left: -100px;
+        color: red;
       }
       .description{
         margin-top: 1150px;
@@ -25,11 +27,40 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/addons/p5.sound.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/planck-js@latest/dist/planck-with-testbed.min.js"></script>
     <script src="sketch.js"></script>
     <style></style>
   </head>
   <body>
+    <audio id="breath">
+      <source src="sound/zomb2.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="chase">
+      <source src="sound/zomb1.wav" type="audio/mpeg">
+    </audio>
+    <audio id="walk">
+      <source src="sound/walking.wav" type="audio/mpeg">
+    </audio>
+    <audio id="pickup">
+      <source src="sound/pickup.wav" type="audio/mpeg">
+    </audio>
+    <audio id="heartbeat">
+      <source src="sound/heartbeat.wav" type="audio/mpeg">
+    </audio>
+    <audio id="explode">
+      <source src="sound/explode.wav" type="audio/mpeg">
+    </audio>
+    <audio id="hit">
+      <source src="sound/hit.wav" type="audio/mpeg">
+    </audio>
+    <div class="container">
+      <p>Instructions: </p>
+      <p>Press Left Shift To Focus</p>
+      <p>Press WASD To Move</p>
+      <p>Left Mouse Click To Distract Enemies</p>
+      <p>Try Staying Out Of Hearing Range of Enemies (Outter Circle In Focus Mode)</p>
 
+    </div>
+    
   </body>
 </html>
