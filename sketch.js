@@ -852,10 +852,11 @@ class regular_enemy{
             ang += PI;
             let t = p5.Vector.fromAngle(ang, 200);
             fill(0);
-            circle(t.x, t.y, 10);
+            if(debug_mode){
+                circle(t.x, t.y, 10);
+            }
             pop();
             if(ang/PI - this.angle/PI < 0){
-                //console.log('sub_angle, desired: '+(ang/PI)+' actual: '+(this.angle/PI));
                 this.angle -= 0.008*PI;
                 if(this.max<200){
                     this.angle -= PI;
@@ -873,13 +874,17 @@ class regular_enemy{
             let dif = ang/PI - this.angle;
             this.perlin_rotate_fixed(0.1);
             v = p5.Vector.fromAngle(this.angle, 100);
-            push();
-            translate(this.x_cent, this.y_cent);
-            line(0, 0, -v.x, -v.y);
-            stroke(245,40,145);
-            strokeWeight(4);
-            line(0, 0, this.free_ptr.x, this.free_ptr.y);
-            pop();
+            if(debug_mode){
+                push();
+                translate(this.x_cent, this.y_cent);
+                line(0, 0, -v.x, -v.y);
+                stroke(245,40,145);
+                strokeWeight(4);
+                line(0, 0, this.free_ptr.x, this.free_ptr.y);
+                pop();
+
+            }
+
             v.normalize();
             this.x -= v.x * 0.2;
             this.y -= v.y * 0.2;
@@ -1151,8 +1156,8 @@ function mouseClicked(){
     var gx = int(mouseX / cellSize);
     var gy = int(mouseY / cellSize);
     test_arr.push([gx,gy]);
-    console.log(bug_status);
-    if(bug_status == false && state == 'game' && frameCount - game_time > 20 && game_time != 0){
+    console.log(red(curmap.get(mouseX, mouseY)));
+    if(bug_status == false && state == 'game' && frameCount - game_time > 20 && game_time != 0 && red(curmap.get(mouseX, mouseY))==255){
         bugs = new bug(plyr.x, plyr.y , mouseX, mouseY);
         bug_status = true;
     }
@@ -1163,6 +1168,14 @@ function keyPressed(){
         opacity = 10;
         if(isPlaying(heartbeat_sound)==false){
             heartbeat_sound.play();
+        }
+    }
+    else if(keyCode==70){
+        if(debug_mode){
+            debug_mode = false;
+        }
+        else{
+            debug_mode = true;
         }
     }
 }
@@ -1233,7 +1246,7 @@ class Creature {
       this.frame = 0;
       this.state = 'idle';
       this.hearing_range = 300;
-      this.visual_range = 250;
+      this.visual_range = 300;
       this.alert_range = 100;
       this.distPlayer = 1000;
       this.angle = 0;
@@ -1396,16 +1409,13 @@ class Creature {
         else if (this.y > this.desiredY) {
           this.y -= 1;
         }
-  
         // have we reached our new position?  if so, compute a new node value
         if (dist(this.x, this.y, this.desiredX, this.desiredY) < 2) {
           // snap to our desired position
           this.x = this.desiredX;
           this.y = this.desiredY;
-  
           // note this position
           this.nodeHistory.push([this.nodeX, this.nodeY]);
-  
           // see where we need to go next!
           this.recomputePath();
         }
@@ -1417,7 +1427,6 @@ class Creature {
         // compute new node value
         this.nodeX = int( this.x / cellSize );
         this.nodeY = int( this.y / cellSize );
-  
         // add this to our node history
         this.nodeHistory.push([this.nodeX, this.nodeY]);
   
@@ -1432,7 +1441,6 @@ class Creature {
               break;
             }
           }
-
         }
         else {
           // compute new desired value
@@ -1511,7 +1519,6 @@ class Creature {
                 }
                 this.img = bomb_destroyed;
             }
-            //console.log(dist(special_enemy_arr[i].x, special_enemy_arr[i].y, this.x, this.y));
         }
         for(let i=0; i<enemy_arr.length; i++){
             if(dist(enemy_arr[i].x, enemy_arr[i].y, this.x+this.width/2, this.y+this.width/2)<50 && this.state=='new'){
@@ -1522,7 +1529,6 @@ class Creature {
                 }
                 this.img = bomb_destroyed;
             }
-            //console.log(dist(special_enemy_arr[i].x, special_enemy_arr[i].y, this.x, this.y));
         }
     }
     explosion(){
